@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroSensor — Panel de Control</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e0a;
+    --bg2: #0f1510;
+    --bg3: #141d13;
+    --panel: #111811;
+    --border: #1e2e1c;
+    --green: #4ade80;
+    --green-dim: #1a3d1f;
+    --yellow: #fbbf24;
+    --yellow-dim: #3d2e0a;
+    --red: #f87171;
+    --red-dim: #3d1010;
+    --blue: #60a5fa;
+    --blue-dim: #0e1f3d;
+    --text: #c8d9c6;
+    --text-dim: #5a7a58;
+    --accent: #4ade80;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--green-dim);
+    border: 1px solid var(--green);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .logo-text {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--green);
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .timestamp {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .alert-banner {
+    display: none;
+    padding: 10px 24px;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    align-items: center;
+    gap: 10px;
+    animation: alertPulse 1s infinite;
+  }
+
+  .alert-banner.fire {
+    background: var(--red-dim);
+    border-bottom: 1px solid var(--red);
+    color: var(--red);
+    display: flex;
+  }
+
+  @keyframes alertPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .main {
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .sensor-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .sensor-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+
+  .sensor-card.warning::after { background: var(--yellow); }
+  .sensor-card.danger::after  { background: var(--red); }
+  .sensor-card.warning { border-color: #3d2e0a; }
+  .sensor-card.danger  { border-color: #3d1010; }
+
+  .sensor-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .sensor-value {
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--green);
+    transition: color 0.3s;
+    word-break: break-all;
+  }
+
+  .sensor-card.warning .sensor-value { color: var(--yellow); }
+  .sensor-card.danger  .sensor-value { color: var(--red); }
+
+  .sensor-unit {
+    font-size: 14px;
+    font-weight: 300;
+    color: var(--text-dim);
+    margin-left: 4px;
+  }
+
+  .sensor-status {
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--green);
+  }
+
+  .sensor-card.warning .sensor-status { color: var(--yellow); }
+  .sensor-card.danger  .sensor-status { color: var(--red); }
+
+  .sensor-mini-chart {
+    margin-top: 12px;
+    height: 40px;
+    position: relative;
+  }
+
+  .charts-section {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .chart-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    min-width: 0;
+    height: 175px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chart-panel canvas {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .chart-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .chart-title span {
+    color: var(--green);
+    font-size: 13px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+  }
+
+  canvas { width: 100% !important; }
+
+  .risk-panel {
+    grid-column: span 2;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+  }
+
+  .risk-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .risk-meter {
+    position: relative;
+    height: 20px;
+    background: var(--bg3);
+    border-radius: 2px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .risk-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s ease, background 1s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .risk-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .risk-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  .risk-value-display {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1;
+    margin: 12px 0 4px;
+    transition: color 0.3s;
+  }
+
+  .risk-description {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    transition: color 0.3s;
+  }
+
+  .risk-factors {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .risk-factor {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px;
+  }
+
+  .risk-factor-name {
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .risk-factor-val {
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .riego-panel {
+    grid-column: span 2;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .riego-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .riego-status {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .riego-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--bg3);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    transition: all 0.5s;
+    flex-shrink: 0;
+  }
+
+  .riego-icon.active {
+    background: var(--blue-dim);
+    border-color: var(--blue);
+    box-shadow: 0 0 20px rgba(96,165,250,0.3);
+    animation: riegoPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes riegoPulse {
+    0%, 100% { transform: scale(1); }
+    50%       { transform: scale(1.06); }
+  }
+
+  .riego-info h3 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 1px;
+  }
+
+  .riego-info p {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  /* FIX: border:none eliminado — se define directo con border shorthand */
+  .btn-riego {
+    padding: 14px 24px;
+    border: 2px solid var(--blue);
+    border-radius: 4px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: var(--blue-dim);
+    color: var(--blue);
+    width: 100%;
+  }
+
+  .btn-riego:hover {
+    background: var(--blue);
+    color: var(--bg);
+    box-shadow: 0 0 20px rgba(96,165,250,0.4);
+  }
+
+  .btn-riego.active {
+    background: var(--red-dim);
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  .btn-riego.active:hover {
+    background: var(--red);
+    color: var(--bg);
+  }
+
+  .riego-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .riego-stat {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .riego-stat-val {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--blue);
+  }
+
+  .riego-stat-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    text-transform: uppercase;
+  }
+
+  .alertas-panel {
+    grid-column: span 4;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+  }
+
+  .alertas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .alertas-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .notif-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn-notif {
+    padding: 6px 14px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--text-dim);
+    transition: all 0.3s;
+    font-family: 'Barlow Condensed', sans-serif;
+  }
+
+  .btn-notif:hover, .btn-notif.active {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--green-dim);
+  }
+
+  .btn-notif.whatsapp:hover, .btn-notif.whatsapp.active {
+    border-color: #25d366;
+    color: #25d366;
+    background: rgba(37,211,102,0.1);
+  }
+
+  .btn-notif.email:hover, .btn-notif.email.active {
+    border-color: var(--yellow);
+    color: var(--yellow);
+    background: var(--yellow-dim);
+  }
+
+  .alertas-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  .alerta-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    background: var(--bg3);
+    border-left: 3px solid var(--green);
+    font-size: 13px;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .alerta-item.warning { border-left-color: var(--yellow); }
+  .alerta-item.danger  { border-left-color: var(--red); }
+
+  .alerta-time {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    padding-top: 2px;
+  }
+
+  .alerta-msg { flex: 1; line-height: 1.4; }
+
+  .alerta-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .alerta-badge.ok      { background: var(--green-dim); color: var(--green); }
+  .alerta-badge.warning { background: var(--yellow-dim); color: var(--yellow); }
+  .alerta-badge.danger  { background: var(--red-dim); color: var(--red); }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg2);
+    border: 1px solid var(--green);
+    border-radius: 6px;
+    padding: 14px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 320px;
+  }
+
+  .toast.show      { transform: translateY(0); opacity: 1; }
+  .toast.whatsapp  { border-color: #25d366; color: #25d366; }
+  .toast.email     { border-color: var(--yellow); color: var(--yellow); }
+
+  ::-webkit-scrollbar       { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── Responsive: tablet ── */
+  /* ── Tablet ── */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: repeat(2, 1fr); }
+    .charts-section { grid-template-columns: 1fr 1fr; }
+    .risk-panel, .riego-panel { grid-column: span 2; }
+    .alertas-panel { grid-column: span 2; }
+  }
+
+  /* ── Móvil ── */
+  @media (max-width: 480px) {
+    header { padding: 8px 12px; }
+    .logo-text { font-size: 17px; letter-spacing: 2px; }
+    .logo-sub { display: none; }
+    .status-indicator span { display: none; }
+    .timestamp { font-size: 10px; }
+
+    .main {
+      grid-template-columns: 1fr 1fr;
+      padding: 10px;
+      gap: 8px;
+    }
+
+    /* Sensores: compactos, 2 por fila */
+    .sensor-card { padding: 10px; }
+    .sensor-label { font-size: 8px; letter-spacing: 1px; margin-bottom: 4px; }
+    .sensor-value { font-size: 28px; }
+    .sensor-unit  { font-size: 11px; }
+    .sensor-status { font-size: 9px; margin-top: 4px; }
+    .sensor-mini-chart { height: 28px; margin-top: 6px; }
+
+    /* Ocultar gráficos de 24hs — los mini-charts ya muestran la tendencia */
+    .charts-section { display: none; }
+
+    /* Riesgo: ocupa todo el ancho, más compacto */
+    .risk-panel { grid-column: span 2; padding: 14px; }
+    .risk-value-display { font-size: 40px; margin: 6px 0 2px; }
+    .risk-description { font-size: 12px; letter-spacing: 2px; }
+    .risk-factors { gap: 6px; margin-top: 10px; }
+    .risk-factor { padding: 6px; }
+    .risk-factor-name { font-size: 8px; }
+    .risk-factor-val { font-size: 13px; }
+
+    /* Riego: ocupa todo el ancho */
+    .riego-panel { grid-column: span 2; padding: 14px; gap: 10px; }
+    .riego-icon { width: 48px; height: 48px; font-size: 22px; }
+    .riego-info h3 { font-size: 16px; }
+    .riego-info p  { font-size: 10px; }
+    .riego-stat-val   { font-size: 16px; }
+    .riego-stat-label { font-size: 8px; }
+    .btn-riego { font-size: 13px; letter-spacing: 2px; padding: 11px; }
+
+    /* Alertas */
+    .alertas-panel { grid-column: span 2; padding: 12px; }
+    .alertas-title { font-size: 9px; }
+    .alertas-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .btn-notif { font-size: 10px; padding: 5px 10px; }
+    .alerta-item { font-size: 11px; padding: 7px 10px; gap: 8px; }
+    .alerta-time { font-size: 9px; }
+    .alertas-list { max-height: 120px; }
+
+    .toast { left: 10px; right: 10px; max-width: none; bottom: 12px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🌾</div>
+    <div>
+      <div class="logo-text">AgroSensor</div>
+      <div class="logo-sub">Sistema de Monitoreo de Campo</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-indicator">
+      <div class="dot"></div>
+      <span>EN VIVO — CAMPO NORTE · LOTE 4</span>
+    </div>
+    <div class="timestamp" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<div class="alert-banner" id="alertBanner">
+  ⚠️ ALERTA — RIESGO DE INCENDIO ELEVADO DETECTADO — ACTIVAR RIEGO PREVENTIVO
+</div>
+
+<div class="main">
+
+  <div class="sensor-card" id="card-humedad">
+    <div class="sensor-label">// Humedad del suelo</div>
+    <div class="sensor-value" id="val-humedad">--<span class="sensor-unit">%</span></div>
+    <div class="sensor-status" id="status-humedad">Cargando...</div>
+    <div class="sensor-mini-chart"><canvas id="mini-humedad" height="40"></canvas></div>
+  </div>
+
+  <div class="sensor-card" id="card-temp">
+    <div class="sensor-label">// Temperatura</div>
+    <div class="sensor-value" id="val-temp">--<span class="sensor-unit">°C</span></div>
+    <div class="sensor-status" id="status-temp">Cargando...</div>
+    <div class="sensor-mini-chart"><canvas id="mini-temp" height="40"></canvas></div>
+  </div>
+
+  <div class="sensor-card" id="card-viento">
+    <div class="sensor-label">// Velocidad del viento</div>
+    <div class="sensor-value" id="val-viento">--<span class="sensor-unit">km/h</span></div>
+    <div class="sensor-status" id="status-viento">Cargando...</div>
+    <div class="sensor-mini-chart"><canvas id="mini-viento" height="40"></canvas></div>
+  </div>
+
+  <div class="sensor-card" id="card-rad">
+    <div class="sensor-label">// Radiación solar</div>
+    <div class="sensor-value" id="val-rad">--<span class="sensor-unit">W/m²</span></div>
+    <div class="sensor-status" id="status-rad">Cargando...</div>
+    <div class="sensor-mini-chart"><canvas id="mini-rad" height="40"></canvas></div>
+  </div>
+
+  <div class="charts-section">
+    <div class="chart-panel">
+      <div class="chart-title">// Humedad — Últimas 24hs <span id="cur-humedad">--%</span></div>
+      <canvas id="chart-humedad"></canvas>
+    </div>
+    <div class="chart-panel">
+      <div class="chart-title">// Temperatura — Últimas 24hs <span id="cur-temp">--°C</span></div>
+      <canvas id="chart-temp"></canvas>
+    </div>
+    <div class="chart-panel">
+      <div class="chart-title">// Viento — Últimas 24hs <span id="cur-viento">-- km/h</span></div>
+      <canvas id="chart-viento"></canvas>
+    </div>
+  </div>
+
+  <div class="risk-panel">
+    <div class="risk-title">// Índice de Riesgo de Incendio</div>
+    <div class="risk-value-display" id="risk-val" style="color:var(--green)">--</div>
+    <div class="risk-description" id="risk-desc" style="color:var(--green)">Calculando...</div>
+    <div class="risk-meter" style="margin-top:12px">
+      <div class="risk-fill" id="risk-fill" style="width:0%;background:var(--green)"></div>
+    </div>
+    <div class="risk-labels">
+      <span>BAJO</span><span>MODERADO</span><span>ALTO</span><span>EXTREMO</span>
+    </div>
+    <div class="risk-factors">
+      <div class="risk-factor">
+        <div class="risk-factor-name">// Humedad</div>
+        <div class="risk-factor-val" id="rf-humedad" style="color:var(--green)">--</div>
+      </div>
+      <div class="risk-factor">
+        <div class="risk-factor-name">// Temp.</div>
+        <div class="risk-factor-val" id="rf-temp" style="color:var(--green)">--</div>
+      </div>
+      <div class="risk-factor">
+        <div class="risk-factor-name">// Viento</div>
+        <div class="risk-factor-val" id="rf-viento" style="color:var(--green)">--</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="riego-panel">
+    <div class="riego-title">// Sistema de Riego Automático</div>
+    <div class="riego-status">
+      <div class="riego-icon" id="riego-icon">💧</div>
+      <div class="riego-info">
+        <h3 id="riego-estado">SISTEMA INACTIVO</h3>
+        <p id="riego-desc">Presioná el botón para activar el riego</p>
+      </div>
+    </div>
+    <div class="riego-stats">
+      <div class="riego-stat">
+        <div class="riego-stat-val" id="rs-tiempo">0:00</div>
+        <div class="riego-stat-label">Tiempo activo</div>
+      </div>
+      <div class="riego-stat">
+        <div class="riego-stat-val" id="rs-agua">0 L</div>
+        <div class="riego-stat-label">Agua usada</div>
+      </div>
+      <div class="riego-stat">
+        <div class="riego-stat-val" id="rs-cobertura">0%</div>
+        <div class="riego-stat-label">Cobertura</div>
+      </div>
+    </div>
+    <button class="btn-riego" id="btn-riego" onclick="toggleRiego()">
+      💧 ACTIVAR RIEGO
+    </button>
+  </div>
+
+  <div class="alertas-panel">
+    <div class="alertas-header">
+      <div class="alertas-title">// Registro de Alertas y Notificaciones</div>
+      <div class="notif-buttons">
+        <button class="btn-notif whatsapp" id="btn-wa" onclick="toggleNotif('whatsapp')">📱 WhatsApp</button>
+        <button class="btn-notif email"    id="btn-email" onclick="toggleNotif('email')">✉️ Email</button>
+      </div>
+    </div>
+    <div class="alertas-list" id="alertas-list"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// ── Estado global ──────────────────────────────────────────────
+// FIX: renombrado de "history" (nombre reservado del browser) a "sensorHistory"
+const state = {
+  humedad: 55, temp: 22, viento: 12, rad: 450,
+  riegoActive: false, riegoInterval: null,
+  notifWA: false, notifEmail: false,
+  lastRisk: 0
+};
+
+const sensorHistory = { humedad: [], temp: [], viento: [], rad: [] };
+const LABELS = Array.from({length: 24}, (_, i) => `${String(i).padStart(2,'0')}:00`);
+
+// ── Datos históricos iniciales ─────────────────────────────────
+function genHistory(base, variance, len = 24) {
+  return Array.from({length: len}, (_, i) => {
+    const trend = Math.sin(i / 24 * Math.PI * 2) * variance * 0.5;
+    return Math.max(0, base + trend + (Math.random() - 0.5) * variance);
+  });
+}
+
+sensorHistory.humedad = genHistory(55, 20);
+sensorHistory.temp    = genHistory(22, 10);
+sensorHistory.viento  = genHistory(15, 12);
+sensorHistory.rad     = genHistory(450, 100);
+
+// ── Gráficos principales ───────────────────────────────────────
+// FIX: maintainAspectRatio: false para que no se deformen al redimensionar
+const chartConfig = (color, data) => ({
+  type: 'line',
+  data: {
+    labels: LABELS,
+    datasets: [{
+      data: [...data],
+      borderColor: color,
+      backgroundColor: color.replace(')', ', 0.08)').replace('rgb', 'rgba'),
+      borderWidth: 1.5,
+      pointRadius: 0,
+      tension: 0.4,
+      fill: true
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#5a7a58', font: { size: 9, family: 'Share Tech Mono' }, maxTicksLimit: 6 } },
+      y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#5a7a58', font: { size: 9, family: 'Share Tech Mono' } } }
+    }
+  }
+});
+
+const charts = {
+  humedad: new Chart(document.getElementById('chart-humedad'), chartConfig('rgb(74,222,128)',  [...sensorHistory.humedad])),
+  temp:    new Chart(document.getElementById('chart-temp'),    chartConfig('rgb(251,191,36)',  [...sensorHistory.temp])),
+  viento:  new Chart(document.getElementById('chart-viento'),  chartConfig('rgb(96,165,250)',  [...sensorHistory.viento]))
+};
+
+// ── Mini sparklines ────────────────────────────────────────────
+const miniCharts = {};
+
+function createMini(id, data, color) {
+  miniCharts[id] = new Chart(document.getElementById(id), {
+    type: 'line',
+    data: {
+      labels: Array(data.length).fill(''),
+      datasets: [{ data: [...data], borderColor: color, borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: false }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { display: false }, y: { display: false } },
+      animation: { duration: 300 }
+    }
+  });
+}
+
+createMini('mini-humedad', sensorHistory.humedad.slice(-12), 'rgb(74,222,128)');
+createMini('mini-temp',    sensorHistory.temp.slice(-12),    'rgb(251,191,36)');
+createMini('mini-viento',  sensorHistory.viento.slice(-12),  'rgb(96,165,250)');
+createMini('mini-rad',     sensorHistory.rad.slice(-12),     'rgb(251,146,60)');
+
+// ── Reloj ──────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('es-AR');
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Calcular riesgo de incendio ────────────────────────────────
+function calcRisk(h, t, v, r) {
+  const hScore = Math.max(0, (50 - h) / 50) * 35;
+  const tScore = Math.max(0, (t - 20) / 20) * 30;
+  const vScore = Math.min(v / 60, 1) * 20;
+  const rScore = Math.min(r / 800, 1) * 15;
+  return Math.min(100, Math.round(hScore + tScore + vScore + rScore));
+}
+
+// ── Estado de cada sensor ──────────────────────────────────────
+// FIX: lógica de humedad corregida — danger cuando val <= threshold.danger
+function getSensorStatus(sensor, val) {
+  const thresholds = {
+    humedad: { warn: 30,  danger: 20,  okMsg: 'Óptimo',  warnMsg: 'Bajo — Riesgo', dangerMsg: 'Crítico' },
+    temp:    { warn: 35,  danger: 42,  okMsg: 'Normal',  warnMsg: 'Elevada',        dangerMsg: 'Peligrosa' },
+    viento:  { warn: 40,  danger: 60,  okMsg: 'Calmo',   warnMsg: 'Fuerte',         dangerMsg: 'Muy fuerte' },
+    rad:     { warn: 700, danger: 900, okMsg: 'Normal',  warnMsg: 'Alta',           dangerMsg: 'Extrema' }
+  };
+  const t = thresholds[sensor];
+  if (sensor === 'humedad') {
+    if (val <= t.danger) return { level: 'danger',  msg: t.dangerMsg };
+    if (val <= t.warn)   return { level: 'warning', msg: t.warnMsg };
+  } else {
+    if (val >= t.danger) return { level: 'danger',  msg: t.dangerMsg };
+    if (val >= t.warn)   return { level: 'warning', msg: t.warnMsg };
+  }
+  return { level: 'ok', msg: t.okMsg };
+}
+
+function updateSensorCard(id, val, sensor) {
+  const s     = getSensorStatus(sensor, val);
+  const card  = document.getElementById(`card-${id}`);
+  const valEl = document.getElementById(`val-${id}`);
+  const stEl  = document.getElementById(`status-${id}`);
+  const units = { humedad: '%', temp: '°C', viento: ' km/h', rad: ' W/m²' };
+  const numVal = sensor === 'rad' ? Math.round(val) : val.toFixed(1);
+  valEl.innerHTML = `${numVal}<span class="sensor-unit">${units[sensor]}</span>`;
+  card.className = `sensor-card${s.level !== 'ok' ? ' ' + s.level : ''}`;
+  stEl.textContent = `● ${s.msg.toUpperCase()}`;
+  stEl.style.color = s.level === 'danger' ? 'var(--red)' : s.level === 'warning' ? 'var(--yellow)' : 'var(--green)';
+}
+
+function updateRiskUI(risk) {
+  const el     = document.getElementById('risk-val');
+  const desc   = document.getElementById('risk-desc');
+  const fill   = document.getElementById('risk-fill');
+  const banner = document.getElementById('alertBanner');
+
+  let color, label;
+  if      (risk < 25) { color = 'var(--green)';      label = 'RIESGO BAJO'; }
+  else if (risk < 50) { color = 'var(--yellow)';     label = 'RIESGO MODERADO'; }
+  else if (risk < 75) { color = 'rgb(251,146,60)';   label = 'RIESGO ALTO'; }
+  else                { color = 'var(--red)';         label = '⚠ RIESGO EXTREMO'; }
+
+  el.textContent   = `${risk}%`;
+  el.style.color   = color;
+  desc.textContent = label;
+  desc.style.color = color;
+  fill.style.width = `${risk}%`;
+  fill.style.background = `linear-gradient(90deg, var(--green), ${color})`;
+
+  const rfh = document.getElementById('rf-humedad');
+  const rft = document.getElementById('rf-temp');
+  const rfv = document.getElementById('rf-viento');
+  rfh.textContent  = `${state.humedad.toFixed(0)}%`;
+  rft.textContent  = `${state.temp.toFixed(1)}°C`;
+  rfv.textContent  = `${state.viento.toFixed(0)} km/h`;
+  rfh.style.color  = state.humedad < 20 ? 'var(--red)' : state.humedad < 30 ? 'var(--yellow)' : 'var(--green)';
+  rft.style.color  = state.temp > 42    ? 'var(--red)' : state.temp > 35    ? 'var(--yellow)' : 'var(--green)';
+  rfv.style.color  = state.viento > 60  ? 'var(--red)' : state.viento > 40  ? 'var(--yellow)' : 'var(--green)';
+
+  banner.className = `alert-banner${risk >= 65 ? ' fire' : ''}`;
+
+  if (risk >= 65 && state.lastRisk < 65) {
+    addAlerta('⚠️ ALERTA: Riesgo de incendio elevado detectado — Revisá el sistema de riego', 'danger');
+    sendNotif(`⚠️ ALERTA DE CAMPO — Riesgo de incendio: ${risk}%. Activá el riego inmediatamente.`);
+  }
+  state.lastRisk = risk;
+}
+
+// ── Alertas ────────────────────────────────────────────────────
+function addAlerta(msg, level = 'ok') {
+  const list   = document.getElementById('alertas-list');
+  const now    = new Date().toLocaleTimeString('es-AR');
+  const badges = { ok: 'OK', warning: 'AVISO', danger: 'ALERTA' };
+  const item   = document.createElement('div');
+  item.className = `alerta-item ${level}`;
+  item.innerHTML = `
+    <span class="alerta-time">${now}</span>
+    <span class="alerta-msg">${msg}</span>
+    <span class="alerta-badge ${level}">${badges[level]}</span>
+  `;
+  list.insertBefore(item, list.firstChild);
+  if (list.children.length > 20) list.removeChild(list.lastChild);
+}
+
+// ── Notificaciones ─────────────────────────────────────────────
+function toggleNotif(type) {
+  const btn      = document.getElementById(type === 'whatsapp' ? 'btn-wa' : 'btn-email');
+  const isActive = btn.classList.toggle('active');
+  if (type === 'whatsapp') state.notifWA    = isActive;
+  else                     state.notifEmail = isActive;
+  const label  = type === 'whatsapp' ? 'WhatsApp' : 'Email';
+  const icon   = type === 'whatsapp' ? '📱' : '✉️';
+  const status = isActive ? 'activadas' : 'desactivadas';
+  showToast(`${icon} Notificaciones por ${label} ${status}`, type);
+  addAlerta(`Notificaciones por ${label} ${status}`, 'ok');
+}
+
+function sendNotif(msg) {
+  if (state.notifWA)    showToast(`📱 WhatsApp: ${msg.substring(0, 55)}…`, 'whatsapp');
+  if (state.notifEmail) showToast(`✉️ Email: ${msg.substring(0, 55)}…`, 'email');
+}
+
+function showToast(msg, type = '') {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = `toast ${type} show`;
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove('show'), 4000);
+}
+
+// ── Sistema de Riego ───────────────────────────────────────────
+let riegoSeconds = 0;
+let aguaUsada    = 0;
+
+function toggleRiego() {
+  state.riegoActive = !state.riegoActive;
+  const btn    = document.getElementById('btn-riego');
+  const icon   = document.getElementById('riego-icon');
+  const estado = document.getElementById('riego-estado');
+  const descEl = document.getElementById('riego-desc');
+
+  if (state.riegoActive) {
+    btn.textContent  = '⏹ DETENER RIEGO';
+    btn.className    = 'btn-riego active';
+    icon.className   = 'riego-icon active';
+    estado.textContent = 'SISTEMA ACTIVO';
+    descEl.textContent = 'Riego en curso — Monitoreo continuo';
+    riegoSeconds = 0; aguaUsada = 0;
+    addAlerta('✅ Sistema de riego activado manualmente', 'ok');
+    sendNotif('💧 Sistema de riego activado en Campo Norte · Lote 4');
+    state.riegoInterval = setInterval(updateRiegoStats, 1000);
+  } else {
+    btn.textContent  = '💧 ACTIVAR RIEGO';
+    btn.className    = 'btn-riego';
+    icon.className   = 'riego-icon';
+    estado.textContent = 'SISTEMA INACTIVO';
+    descEl.textContent = 'Presioná el botón para activar el riego';
+    clearInterval(state.riegoInterval);
+    addAlerta(`⏹ Riego detenido — ${Math.floor(riegoSeconds/60)} min — ${aguaUsada.toFixed(0)}L utilizados`, 'warning');
+    sendNotif(`⏹ Riego detenido. Duración: ${Math.floor(riegoSeconds/60)} min. Agua: ${aguaUsada.toFixed(0)}L`);
+  }
+}
+
+function updateRiegoStats() {
+  riegoSeconds++;
+  aguaUsada += 2.5;
+  const mins = Math.floor(riegoSeconds / 60);
+  const secs = riegoSeconds % 60;
+  document.getElementById('rs-tiempo').textContent   = `${mins}:${String(secs).padStart(2,'0')}`;
+  document.getElementById('rs-agua').textContent     = `${aguaUsada.toFixed(0)} L`;
+  document.getElementById('rs-cobertura').textContent = `${Math.min(100, Math.round(aguaUsada / 10))}%`;
+}
+
+// ── Simulación de sensores en vivo ─────────────────────────────
+function updateSensors() {
+  state.humedad = Math.max(10, Math.min(95, state.humedad + (Math.random() - 0.52) * 1.5));
+  state.temp    = Math.max(5,  Math.min(50, state.temp    + (Math.random() - 0.48) * 0.8));
+  state.viento  = Math.max(0,  Math.min(80, state.viento  + (Math.random() - 0.5)  * 2));
+  state.rad     = Math.max(0,  Math.min(1000, state.rad   + (Math.random() - 0.48) * 20));
+
+  if (state.riegoActive) {
+    state.humedad = Math.min(95, state.humedad + 0.3);
+    state.temp    = Math.max(5,  state.temp    - 0.1);
+  }
+
+  updateSensorCard('humedad', state.humedad, 'humedad');
+  updateSensorCard('temp',    state.temp,    'temp');
+  updateSensorCard('viento',  state.viento,  'viento');
+  updateSensorCard('rad',     state.rad,     'rad');
+
+  document.getElementById('cur-humedad').textContent = `${state.humedad.toFixed(1)}%`;
+  document.getElementById('cur-temp').textContent    = `${state.temp.toFixed(1)}°C`;
+  document.getElementById('cur-viento').textContent  = `${state.viento.toFixed(0)} km/h`;
+
+  updateRiskUI(calcRisk(state.humedad, state.temp, state.viento, state.rad));
+
+  // FIX: mini-rad también se actualiza en vivo
+  ['humedad', 'temp', 'viento', 'rad'].forEach(k => {
+    const mc = miniCharts[`mini-${k}`];
+    mc.data.datasets[0].data.push(state[k]);
+    if (mc.data.datasets[0].data.length > 12) mc.data.datasets[0].data.shift();
+    mc.update('none');
+  });
+
+  if (Math.random() < 0.1) {
+    ['humedad', 'temp', 'viento'].forEach(k => {
+      const ch = charts[k];
+      ch.data.datasets[0].data.push(state[k]);
+      ch.data.datasets[0].data.shift();
+      ch.update('none');
+    });
+  }
+}
+
+// ── Arrancar ───────────────────────────────────────────────────
+addAlerta('🟢 Sistema AgroSensor inicializado correctamente', 'ok');
+addAlerta('📡 Sensores conectados: Humedad, Temperatura, Viento, Radiación', 'ok');
+
+setInterval(updateSensors, 2000);
+updateSensors();
+</script>
+</body>
+</html>
